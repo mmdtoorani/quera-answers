@@ -1,6 +1,6 @@
 from Exception import *
 import hashlib
-from sqlalchemy import create_engine, Column, String
+from sqlalchemy import create_engine, and_, Column, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 db_url = 'sqlite:///database.db'
@@ -16,23 +16,47 @@ class Site:
         self.url = url
         
     def show_users(self):
-        pass
+        return session.query(Account).all()
 
     def register(self, user):
-        if user in self.register_users:
-            raise AlreadyRegistered("user already registered")
+        if isinstance(user, Account):
+            if user in self.register_users:
+                raise AlreadyRegistered("user already registered")
+            else:
+                self.register_users.append(user)
+                return "register successful"
         else:
-            self.register_users.append(user)
-            return "register successful"
+            raise  TypeError("input must be an instance of the class Account")
+        
+    def convert_to_sha256(self, password):
+        return hashlib.sha256(password.encode('utf8')).hexdigest()
+    
+    def add_active_user(self, user, password):
+        if user in self.register_users:
+            if user.password == self.convert_to_sha256(password):
+                if user not in self.active_users:
+                    self.active_users.append(user)
+                else:
+                    raise  AlreadyLoggedIn("User has already logged in")
+            else:
+                raise InvalidPassword("password is incorrect")
+        else:
+            raise InvalidLogin("Invalid login")
 
     def login(self, **kwargs):
         if (kwargs.get('username') is not None) and (kwargs.get('password') is not None) and (kwargs.get('email') is not None):
-            pass
-        elif (kwargs.get('username') is not None) and (kwargs.get('password') is not None):
-            pass
-        elif (kwargs.get('password') is not None) and (kwargs.get('email') is not None):
-            pass
+            user = session.query(Account).filter(and_(Account.username == kwargs.get('username'), Account.username == kwargs.get('username'))).one_or_none()
+            self.add_active_user(user, kwargs['password'])
         
+        elif (kwargs.get('username') is not None) and (kwargs.get('password') is not None):
+            user = session.query(Account).filter(Account.username == kwargs.get('username')).one_or_none()
+            self.add_active_user(user, kwargs['password'])
+        
+        elif (kwargs.get('password') is not None) and (kwargs.get('email') is not None):
+            user = session.query(Account).filter(Account.email == kwargs.get('email')).one_or_none()
+            self.add_active_user(user, kwargs['password'])
+        
+
     def logout(self, user):
         if user in self.active_users:
             self.active_users.remove(user)
@@ -50,7 +74,7 @@ class Site:
 class Account(Base):
     __tablename__ = 'account'   
     
-    username = Column(String(64))
+    username = Column(String(64), unique=True)
     password = Column(String)
     user_id = Column(String(10), primary_key=True)
     phone = Column(String(64))
@@ -82,7 +106,7 @@ class Account(Base):
     def set_new_password(self, password): #DONE!
         return hashlib.sha256(password.encode('utf8')).hexdigest()
 
-    def set_new_phone(self, phone):
+    def set_new_phone(self, phone): #DONE!
         return phone.replace(phone[-9:], 'xxxxxxxxx')
     
     def username_validation(self, username): # DONE!
@@ -100,7 +124,7 @@ class Account(Base):
         
         return True
 
-    def pass_has_num(self, password):
+    def pass_has_num(self, password): #DONE!
         type_list = []
         for i in password:
             try:
@@ -110,7 +134,7 @@ class Account(Base):
                 type_list.append("str")
         return "int" in type_list
 
-    def is_pass_utf8(self, password):
+    def is_pass_utf8(self, password): #DONE!
         try:
             password.encode('utf-8')
             return True
@@ -130,7 +154,7 @@ class Account(Base):
         else:
             return True
         
-    def id_validation(self, id):
+    def id_validation(self, id): #DONE!
         if len(id) == 10:
             total = 0
             pos = 10
@@ -150,7 +174,7 @@ class Account(Base):
                 
         return False
 
-    def phone_validation(self, phone):
+    def phone_validation(self, phone): #DONE!
         if phone[0:4] == '+989':
             if len(phone) == 13:
                 return True
@@ -161,7 +185,7 @@ class Account(Base):
         
         return False
 
-    def email_validation(self, email):
+    def email_validation(self, email): #DONE!
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         valid_chars = "0123456789-_."
             
@@ -195,16 +219,24 @@ class Account(Base):
 Base.metadata.create_all(engine)
 
 def show_welcome(func): #DONE!
-    def wrapper(username):
-        new_username = username.replace("_", " ")
+    def wrapper(user):
+        new_username = user.username.replace("_", " ")
         if len(new_username) > 15:
             return new_username[:15] + "..."
         else:
             return func(new_username)
     return wrapper
         
-def verify_change_password(func):
-    pass
+def verify_change_password(func): #DONE!
+    def wrapper(user, old_pass, new_pass):
+        if hashlib.sha256(old_pass.encode('utf8')).hexdigest() == user.password:
+            print("hash is correct")
+            user.password =  hashlib.sha256(new_pass.encode('utf8')).hexdigest()
+            session.commit()
+            return func(user, old_pass, new_pass)
+        else:
+            raise InvalidPassword("password is incorrect")
+    return wrapper
 
 @show_welcome
 def welcome(user):
@@ -218,7 +250,21 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 # # ali = Account("Ali_Babaei", "5Dj:xKBA", "0030376459", "09121212121", "SAliB_SAliB@gmail.com")
-salib = Account("Ali_Babaei", "5rrrrR5rrrrrr", "0030376459", "09121212121", "mono78@gmail.com")
+# salib = Account("sahib_mozaffari", "P4ki5t4n", "7731689956", "+989196154847", "Sahib00Mozafar@gmail.com")
 
-session.add(salib)
-session.commit()
+# session.add(salib)
+# session.commit()
+
+# ali = session.query(Account).filter(Account.username=="Ali_Babaei").first()
+# sahib = session.query(Account).filter(Account.username=="sahib_mozaffari").first()
+
+# site1 = Site('salib.org')
+# print(site1.register_users)
+# site1.register(sahib)
+# print(site1.register_users)
+# print(site1.active_users)
+# site1.login(username="sahib_mozaffari", password="P4ki5t4n" )
+# print(site1.active_users)
+# site1.logout(sahib)
+# print(site1.active_users)
+# print(site1.show_users())

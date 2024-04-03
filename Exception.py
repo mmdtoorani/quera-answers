@@ -15,3 +15,9 @@ class InvalidEmail(Exception):
 
 class AlreadyRegistered(Exception):
     pass
+
+class AlreadyLoggedIn(Exception):
+    pass
+
+class InvalidLogin(Exception):
+    pass
