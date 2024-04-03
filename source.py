@@ -1,5 +1,13 @@
 from Exception import *
 import hashlib
+from sqlalchemy import create_engine, Column, String
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+db_url = 'sqlite:///database.db'
+
+engine = create_engine(db_url)
+
+Base = declarative_base()
 
 class Site:
     register_users = []
@@ -39,7 +47,15 @@ class Site:
         return self.url
 
 
-class Account:
+class Account(Base):
+    __tablename__ = 'account'   
+    
+    username = Column(String(64))
+    password = Column(String)
+    user_id = Column(String(10), primary_key=True)
+    phone = Column(String(64))
+    email = Column(String(64))
+      
     def __init__(self, username, password, user_id, phone, email):
         if self.username_validation(username):
             self.username = username
@@ -61,14 +77,24 @@ class Account:
         if self.email_validation(email):
             self.email = email
 
+    
     def set_new_password(self, password): #DONE!
         return hashlib.sha256(password.encode('utf8')).hexdigest()
 
     def username_validation(self, username): # DONE!
-        if '_' not in username or len(username.split('_')) > 2:
+        splited_username = username.split('_')
+        if '_' not in username:
             raise InvalidUsername("Invalid username")
-        else:
-            return True
+        
+        elif len(splited_username) > 2:
+            raise InvalidUsername("Invalid username")
+        
+        elif len(splited_username) == 2:
+            for i in splited_username:
+                if i == '':
+                    raise InvalidUsername("Invalid username")
+        
+        return True
 
     def pass_has_num(self, password):
         type_list = []
@@ -99,25 +125,25 @@ class Account:
         
         else:
             return True
-            
         
     def id_validation(self, id):
-        total = 0
-        pos = 10
-        for i in id:
-            total += int(i) * pos
-            pos -= 1
-            if pos == 1:
-                break
+        if len(id) == 10:
+            total = 0
+            pos = 10
+            for i in id:
+                total += int(i) * pos
+                pos -= 1
+                if pos == 1:
+                    break
+                    
+            remains = total % 11
+            if remains < 2:
+                if remains == int(id[-1]):
+                    return True
+            else:
+                if remains == 11 - int(id[-1]):
+                    return True
                 
-        remains = total % 11
-        if remains < 2:
-            if remains == int(id[-1]):
-                return True
-        else:
-            if remains == 11 - int(id[-1]):
-                return True
-            
         return False
 
     def phone_validation(self, phone):
@@ -138,7 +164,6 @@ class Account:
         first_part = email.split('@')[0]
         second_part = email.split('@')[1].split('.')[0]
         third_part = email.split('.')[-1]
-        print(first_part, second_part, third_part)
         
         for i in first_part:
             if i not in valid_chars + alphabet:
@@ -162,7 +187,8 @@ class Account:
 
     def __str__(self):
         return self.username
-
+    
+Base.metadata.create_all(engine)
 
 def show_welcome(func): #DONE!
     def wrapper(username):
@@ -184,4 +210,11 @@ def welcome(user):
 def change_password(user, old_pass, new_pass):
     return ("your password is changed successfully.")
 
-# print(welcome("salib_alibabaeei"))
+Session = sessionmaker(bind=engine)
+session = Session()
+
+# # ali = Account("Ali_Babaei", "5Dj:xKBA", "0030376459", "09121212121", "SAliB_SAliB@gmail.com")
+salib = Account("Ali_Babaei", "5rrrrR5rrrrrr", "0030376459", "09121212121", "mono78@gmail.com")
+
+session.add(salib)
+session.commit()
