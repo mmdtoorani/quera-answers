@@ -69,8 +69,9 @@ class Account(Base):
         else:
             raise InvalidCodeMelli("Invalid code melli")
         
-        if self.phone_validation(phone):
-            self.phone = phone
+        ph = phone
+        if self.phone_validation(ph):
+            self.phone = self.set_new_phone(ph)
         else:
             raise InvalidPhoneNumber("Invalid phone number")
         
@@ -81,6 +82,9 @@ class Account(Base):
     def set_new_password(self, password): #DONE!
         return hashlib.sha256(password.encode('utf8')).hexdigest()
 
+    def set_new_phone(self, phone):
+        return phone.replace(phone[-9:], 'xxxxxxxxx')
+    
     def username_validation(self, username): # DONE!
         splited_username = username.split('_')
         if '_' not in username:
